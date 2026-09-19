@@ -5,9 +5,7 @@ import pandas as pd
 from pathlib import Path
 
 
-# =========================================================
 # CropGuard AI - Crop Yield Prediction API
-# =========================================================
 
 app = FastAPI(
     title="CropGuard AI - Crop Yield Prediction API",
@@ -16,9 +14,7 @@ app = FastAPI(
 )
 
 
-# =========================================================
 # File paths
-# =========================================================
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -26,9 +22,7 @@ MODEL_PATH = BASE_DIR / "cropguard_yield_model.pkl"
 DATA_PATH = BASE_DIR / "Final_dataset_clean.csv"
 
 
-# =========================================================
 # Load trained model
-# =========================================================
 
 model = None
 
@@ -39,9 +33,7 @@ except Exception as e:
     print(f"Error loading yield model: {e}")
 
 
-# =========================================================
 # Load historical agriculture dataset
-# =========================================================
 
 df = None
 
@@ -112,9 +104,7 @@ except Exception as e:
     print(f"Error loading agriculture dataset: {e}")
 
 
-# =========================================================
 # Input schema
-# =========================================================
 
 class YieldPredictionInput(BaseModel):
     district_name: str = Field(
@@ -139,9 +129,7 @@ class YieldPredictionInput(BaseModel):
     )
 
 
-# =========================================================
 # Home endpoint
-# =========================================================
 
 @app.get("/")
 def home():
@@ -153,9 +141,7 @@ def home():
     }
 
 
-# =========================================================
 # Health endpoint
-# =========================================================
 
 @app.get("/health")
 def health():
@@ -177,9 +163,7 @@ def health():
     }
 
 
-# =========================================================
 # Prediction endpoint
-# =========================================================
 
 @app.post("/predict")
 def predict_yield(data: YieldPredictionInput):
@@ -198,9 +182,7 @@ def predict_yield(data: YieldPredictionInput):
             detail="Agriculture dataset is not loaded."
         )
 
-    # -----------------------------------------------------
     # Clean user inputs
-    # -----------------------------------------------------
 
     district = data.district_name.strip().lower()
     crop = data.crop_name.strip().lower()
@@ -208,9 +190,7 @@ def predict_yield(data: YieldPredictionInput):
 
     farmer_area = float(data.area)
 
-    # -----------------------------------------------------
     # Find historical records for selected combination
-    # -----------------------------------------------------
 
     matching_data = df[
         (df["district_name"] == district)
@@ -227,9 +207,7 @@ def predict_yield(data: YieldPredictionInput):
             )
         )
 
-    # -----------------------------------------------------
     # Select latest available historical record
-    # -----------------------------------------------------
 
     matching_data = matching_data.sort_values(
         "year_start",
@@ -238,9 +216,7 @@ def predict_yield(data: YieldPredictionInput):
 
     selected_data = matching_data.iloc[-1]
 
-    # -----------------------------------------------------
     # Get backend features from latest historical record
-    # -----------------------------------------------------
 
     crop_type = selected_data["crop_type"]
     actual_rainfall = selected_data["actual_rainfall"]
@@ -248,13 +224,7 @@ def predict_yield(data: YieldPredictionInput):
     rainfall_deviation = selected_data["rainfall_deviation"]
     total_irrigated_area = selected_data["total_irrigated_area"]
 
-    # -----------------------------------------------------
     # Create model input
-    #
-    # IMPORTANT:
-    # 'area' is NOT a feature in the trained yield model.
-    # It is used only to estimate total production.
-    # -----------------------------------------------------
 
     sample_input = pd.DataFrame({
         "district_name": [district],
@@ -267,9 +237,7 @@ def predict_yield(data: YieldPredictionInput):
         "total_irrigated_area": [total_irrigated_area]
     })
 
-    # -----------------------------------------------------
     # Predict yield
-    # -----------------------------------------------------
 
     try:
         predicted_yield = model.predict(sample_input)[0]
@@ -281,26 +249,20 @@ def predict_yield(data: YieldPredictionInput):
             detail=f"Prediction failed: {str(e)}"
         )
 
-    # -----------------------------------------------------
     # Estimate total production
-    # -----------------------------------------------------
 
     estimated_total_production = (
         predicted_yield * farmer_area
     )
 
-    # -----------------------------------------------------
     # Historical reference year
-    # -----------------------------------------------------
 
     historical_year = selected_data.get(
         "agri_year",
         selected_data.get("year_start", "Unknown")
     )
 
-    # -----------------------------------------------------
     # Return prediction
-    # -----------------------------------------------------
 
     return {
         "prediction": round(predicted_yield, 2),
